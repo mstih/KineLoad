@@ -1,0 +1,24 @@
+# Node dependencies
+node_modules/
+
+# Env variables
+.env
+.env.local
+.env.*.local
+
+# Builds
+dist/
+build/
+.svelte-kit/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# other things
+.DS_Store
+Thumbs.db
+
+
