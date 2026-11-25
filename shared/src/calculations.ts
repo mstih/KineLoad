@@ -1,7 +1,8 @@
 // Functions to calculate load
 
-// Total volume for strength
+// Total volume and load for strength
 // Volume = sessions * exercises * reps * sets
+// load = exercises * reps * sets * intensity
 export function calculateStrengthVolume(
     sessions: number,
     exercises: number,
@@ -11,21 +12,19 @@ export function calculateStrengthVolume(
     return sessions * exercises * reps * sets;
 }
 
-// Calculate load for strength
-// load = volume * (intensity / 100)
 export function calculateStrengthLoad(
-    sessions: number,
     exercises: number,
     reps: number,
     sets: number,
     intensity: number
 ): number {
-    const vol = calculateStrengthVolume(sessions, exercises, reps, sets);
-    return vol * (intensity / 100);
+    return exercises * reps * sets * intensity;
 }
 
 
-// Calculate volume for endurance
+// Calculate volume and load for endurance
+// volume = sessions * durationMin
+// load = duratonMin * intensity
 export function calculateEnduranceVolume(
     sessions: number,
     duration_min: number,
@@ -33,18 +32,17 @@ export function calculateEnduranceVolume(
     return sessions * duration_min;
 }
 
-// and load
 export function calculateEnduranceLoad(
-    sessions: number,
     duration_min: number,
     intensity: number
 ): number {
-    const vol = calculateEnduranceVolume(sessions, duration_min);
-    return vol * (intensity / 100);
+    return duration_min * intensity
 }
 
 
 // Calculate volume for flexibility
+// volume = sessions * exercises * sets * holdSeconds
+// load = exercises * sets * holdSeconds
 export function calculateFlexibilityVolume(
     sessions: number,
     exercises: number,
@@ -54,16 +52,31 @@ export function calculateFlexibilityVolume(
     return sessions * exercises * sets * hold_seconds
 }
 
+export function calculateFlexibilityLoad(
+    exercises: number,
+    sets: number,
+    hold_seconds: number
+): number {
+    return exercises * sets * hold_seconds
+}
+
 
 // Total weekly load (all of three together)
+// total load = strength load + endurance load + flexibility load
 export function calculateTotalWeeklyLoad(
     strength: { sessions: number; exercises: number; reps: number; sets: number; intensity: number } | null,
     endurance: { sessions: number; duration_min: number; intensity: number } | null,
     flexibility: { sessions: number; exercises: number; sets: number; hold_seconds: number } | null
 ): number {
     let total = 0;
-    total += calculateStrengthLoad(strength.sessions, strength?.exercises, strength?.reps, strength?.sets, strength?.intensity)
-    total += calculateEnduranceLoad(endurance?.sessions, endurance?.duration_min, endurance?.intensity)
-    total += calculateFlexibilityVolume(flexibility?.sessions, flexibility?.exercises, flexibility?.sets, flexibility?.hold_seconds)
+    if (strength) {
+        total += calculateStrengthLoad(strength.sessions, strength.reps, strength.sets, strength.intensity)
+    }
+    if (endurance) {
+        total += calculateEnduranceLoad(endurance.duration_min, endurance.intensity)
+    }
+    if (flexibility) {
+        total += calculateFlexibilityLoad(flexibility.exercises, flexibility.sets, flexibility.hold_seconds)
+    }
     return total;
 }
