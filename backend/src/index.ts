@@ -4,11 +4,17 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import sql from './db'
 
+import { setCookie } from 'hono/cookie';
+import { randomBytes } from 'node:crypto';
+import { verifyPassword } from './lib/password';
+
 import { calculateStrengthLoad, calculateEnduranceLoad, validateEmailAddress, validatePassword } from '@kineLoad/shared';
 import { hashPassword } from './lib/password';
 
 // Constants
 const port = Number(process.env.PORT || 8787)
+const SESSION_COOKIE = process.env.SESSION_COOKIE_NAME ?? 'kineload_session';
+const SESSION_DAYS = 7;
 const app = new Hono()
 
 // Allow origin for frontend
@@ -52,7 +58,7 @@ app.get('/api/health', async (c) => {
     }
 });
 
-
+// register route/resource
 app.post('/api/auth/register', async (c) => {
     const body = await c.req.json().catch(() => null);
     if (!body) {
@@ -107,6 +113,56 @@ app.post('/api/auth/register', async (c) => {
     return c.json({ user }, 201)
 
 });
+
+// login route/resource
+app.post('/api/auth/login', async (c) => {
+    const body = await c.req.json().catch(() => null);
+    if (!body) {
+        return c.json({ error: 'Invalid request!' }, 400);
+    }
+
+    const email = String(body.email ?? '').trim().toLowerCase();
+    const password = String(body.password ?? '');
+
+    const details: Record<string, string> = {};
+    if (email === '') details.email = 'Email required!';
+    if (password === '') details.password = 'Password required!';
+
+    if (Object.keys(details).length > 0) {
+        return c.json({ error: 'Invalid input', details }, 400);
+    }
+
+    const [user] = await sql`
+        select id, name, email, password_hash
+        from users
+        where email = ${email}
+    `;
+
+    if (!user || !(await verifyPassword(password, user.password_hash))) {
+        return c.json({ error: 'Invalid email or password' }, 401);
+    }
+
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000); // to 7 days
+
+    await sql`
+        insert into sessions (user_id, token, expires_at)
+        values (${user.id}, ${token}, ${expiresAt})
+    `;
+
+    setCookie(c, SESSION_COOKIE, token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'Lax',
+        path: '/',
+        expires: expiresAt
+    });
+
+    return c.json({ user: { id: user.id, name: user.name, email: user.email } });
+
+})
+
+
 
 console.log(`Server running on port ${port} ...`)
 serve({ fetch: app.fetch, port })
